@@ -1,4 +1,6 @@
 """Main entrance for train/eval with/without KD on CIFAR-10"""
+## loss.data[0]를 loss.item()으로 변경 (<< PyTorch 0.4.0)
+
 
 import argparse
 import logging
@@ -27,7 +29,9 @@ from evaluate import evaluate, evaluate_kd
 
 parser = argparse.ArgumentParser()
 # parser.add_argument('--data_dir', default='data/64x64_SIGNS', help="Directory for the dataset")
-parser.add_argument('--model_dir', default='experiments/base_model',
+# parser.add_argument('--model_dir', default='experiments/base_model',
+#                     help="Directory containing params.json")
+parser.add_argument('--model_dir', default='experiments/base_cnn',
                     help="Directory containing params.json")
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir \
@@ -83,11 +87,11 @@ def train(model, optimizer, loss_fn, dataloader, metrics, params):
                 # compute all metrics on this batch
                 summary_batch = {metric:metrics[metric](output_batch, labels_batch)
                                  for metric in metrics}
-                summary_batch['loss'] = loss.data[0]
+                summary_batch['loss'] = loss.item()
                 summ.append(summary_batch)
 
             # update the average loss
-            loss_avg.update(loss.data[0])
+            loss_avg.update(loss.item())
 
             t.set_postfix(loss='{:05.3f}'.format(loss_avg()))
             t.update()
@@ -219,11 +223,11 @@ def train_kd(model, teacher_model, optimizer, loss_fn_kd, dataloader, metrics, p
                 # compute all metrics on this batch
                 summary_batch = {metric:metrics[metric](output_batch, labels_batch)
                                  for metric in metrics}
-                summary_batch['loss'] = loss.data[0]
+                summary_batch['loss'] = loss.item()
                 summ.append(summary_batch)
 
             # update the average loss
-            loss_avg.update(loss.data[0])
+            loss_avg.update(loss.item())
 
             t.set_postfix(loss='{:05.3f}'.format(loss_avg()))
             t.update()
@@ -317,7 +321,18 @@ def train_and_evaluate_kd(model, teacher_model, train_dataloader, val_dataloader
 
 
 if __name__ == '__main__':
-
+    '''
+    if distill: 
+    - net.loss_fn_kd
+    - train_and_evaluate_kd
+        ㄴ train_kd
+        ㄴ evaluate_kd
+    else : 
+    - net.loss_fn
+    - train_and_evaluate
+        ㄴ train
+        ㄴ evaluate
+    '''
     # Load the parameters from json file
     args = parser.parse_args()
     json_path = os.path.join(args.model_dir, 'params.json')
