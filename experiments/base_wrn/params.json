@@ -1,6 +1,8 @@
 {
     "model_version": "wrn",
     "learning_rate": 1e-1,
+    "subset_percent": 1.0,
+    "augmentation": "no",
     "batch_size": 128,
     "num_epochs": 200,
     "dropout_rate": 0.5, 

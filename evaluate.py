@@ -41,9 +41,9 @@ def evaluate(model, loss_fn, dataloader, metrics, params):
 
         # move to GPU if available
         if params.cuda:
-            data_batch, labels_batch = data_batch.cuda(non_blocking=True), labels_batch.cuda(non_blocking=True)
+            data_batch, labels_batch = data_batch.cuda(non_blocking=True), labels_batch.cuda(non_blocking=True)  #non_blocking=True : 연산이 비동기적으로 수행되어 다른 연산과 병렬로 실행될 수 있음
         # fetch the next evaluation batch
-        data_batch, labels_batch = Variable(data_batch), Variable(labels_batch)
+        # data_batch, labels_batch = Variable(data_batch), Variable(labels_batch) #현재 버전에서는 텐서 자체가 Autograd 기능을 지원하므로 굳이 사용할 필요가 없음
         
         # compute model output
         output_batch = model(data_batch)
@@ -71,7 +71,7 @@ This function duplicates "evaluate()" but ignores "loss_fn" simply for speedup p
 Validation loss during KD mode would display '0' all the time.
 One can bring that info back by using the fetched teacher outputs during evaluation (refer to train.py)
 """
-def evaluate_kd(model, dataloader, metrics, params):
+def evaluate_kd(model, teacher_model, dataloader, metrics, params):
     """Evaluate the model on `num_steps` batches.
 
     Args:
@@ -85,7 +85,7 @@ def evaluate_kd(model, dataloader, metrics, params):
 
     # set model to evaluation mode
     model.eval()
-
+    teacher_model.eval()
     # summary for current eval loop
     summ = []
 
@@ -101,8 +101,14 @@ def evaluate_kd(model, dataloader, metrics, params):
         # compute model output
         output_batch = model(data_batch)
 
-        # loss = loss_fn_kd(output_batch, labels_batch, output_teacher_batch, params)
-        loss = 0.0  #force validation loss to zero to reduce computation time
+        with torch.no_grad():
+            output_teacher_batch = teacher_model(data_batch)
+        if params.cuda:
+            output_teacher_batch = output_teacher_batch.cuda()
+
+
+        loss = net.loss_fn_kd(output_batch, labels_batch, output_teacher_batch, params)
+        # loss = 0.0  #force validation loss to zero to reduce computation time
 
         # extract data from torch Variable, move to cpu, convert to numpy arrays
         output_batch = output_batch.data.cpu().numpy()

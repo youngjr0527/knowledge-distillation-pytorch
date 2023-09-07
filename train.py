@@ -1,7 +1,6 @@
 """Main entrance for train/eval with/without KD on CIFAR-10"""
 ## loss.data[0]를 loss.item()으로 변경 (<< PyTorch 0.4.0)
 
-
 import argparse
 import logging
 import os
@@ -29,9 +28,11 @@ from evaluate import evaluate, evaluate_kd
 
 parser = argparse.ArgumentParser()
 # parser.add_argument('--data_dir', default='data/64x64_SIGNS', help="Directory for the dataset")
-# parser.add_argument('--model_dir', default='experiments/base_model',
+# parser.add_argument('--model_dir', default='experiments/base_cnn',
 #                     help="Directory containing params.json")
-parser.add_argument('--model_dir', default='experiments/base_cnn',
+# parser.add_argument('--model_dir', default='experiments/resnet18-distill/wrn_teacher',
+#                     help="Directory containing params.json")
+parser.add_argument('--model_dir', default='experiments/base_wrn',
                     help="Directory containing params.json")
 parser.add_argument('--restore_file', default=None,
                     help="Optional, name of the file in --model_dir \
@@ -126,6 +127,8 @@ def train_and_evaluate(model, train_dataloader, val_dataloader, optimizer,
     # for cnn models, num_epoch is always < 100, so it's intentionally not using scheduler here
     elif params.model_version == "cnn":
         scheduler = StepLR(optimizer, step_size=100, gamma=0.2)
+    elif params.model_version == "wrn":
+        scheduler = StepLR(optimizer, step_size=150, gamma=0.1)
 
     for epoch in range(params.num_epochs):
      
@@ -193,7 +196,7 @@ def train_kd(model, teacher_model, optimizer, loss_fn_kd, dataloader, metrics, p
                 train_batch, labels_batch = train_batch.cuda(), \
                                             labels_batch.cuda()
             # convert to torch Variables
-            train_batch, labels_batch = Variable(train_batch), Variable(labels_batch)
+            train_batch, labels_batch = Variable(train_batch), Variable(labels_batch) # 최신 Pytorch 버전에서는 안해도 됨
 
             # compute model output, fetch teacher output, and compute KD loss
             output_batch = model(train_batch)
@@ -278,7 +281,7 @@ def train_and_evaluate_kd(model, teacher_model, train_dataloader, val_dataloader
                  metrics, params)
 
         # Evaluate for one epoch on validation set
-        val_metrics = evaluate_kd(model, val_dataloader, metrics, params)
+        val_metrics = evaluate_kd(model, teacher_model, val_dataloader, metrics, params)
 
         val_acc = val_metrics['accuracy']
         is_best = val_acc>=best_val_acc
@@ -377,13 +380,13 @@ if __name__ == '__main__':
             loss_fn_kd = net.loss_fn_kd
             metrics = net.metrics
         
-        elif params.model_version == 'resnet18_distill':
+        elif params.model_version == 'resnet18_distill':   ##
             model = resnet.ResNet18().cuda() if params.cuda else resnet.ResNet18()
             optimizer = optim.SGD(model.parameters(), lr=params.learning_rate,
                                   momentum=0.9, weight_decay=5e-4)
             # fetch loss function and metrics definition in model files
             loss_fn_kd = net.loss_fn_kd
-            metrics = resnet.metrics
+            metrics = resnet.metrics  ## accuracy 
 
         """ 
             Specify the pre-trained teacher models for knowledge distillation
@@ -396,7 +399,7 @@ if __name__ == '__main__':
             teacher_checkpoint = 'experiments/base_resnet18/best.pth.tar'
             teacher_model = teacher_model.cuda() if params.cuda else teacher_model
 
-        elif params.teacher == "wrn":
+        elif params.teacher == "wrn":  ## 
             teacher_model = wrn.WideResNet(depth=28, num_classes=10, widen_factor=10,
                                            dropRate=0.3)
             teacher_checkpoint = 'experiments/base_wrn/best.pth.tar'
@@ -443,14 +446,14 @@ if __name__ == '__main__':
             loss_fn = resnet.loss_fn
             metrics = resnet.metrics
 
-        # elif params.model_version == "wrn":
-        #     model = wrn.wrn(depth=28, num_classes=10, widen_factor=10, dropRate=0.3)
-        #     model = model.cuda() if params.cuda else model
-        #     optimizer = optim.SGD(model.parameters(), lr=params.learning_rate,
-        #                           momentum=0.9, weight_decay=5e-4)
-        #     # fetch loss function and metrics
-        #     loss_fn = wrn.loss_fn
-        #     metrics = wrn.metrics
+        elif params.model_version == "wrn":
+            model = wrn.WideResNet(depth=28, num_classes=10, widen_factor=10, dropRate=0.3)
+            model = model.cuda() if params.cuda else model
+            optimizer = optim.SGD(model.parameters(), lr=params.learning_rate,
+                                  momentum=0.9, weight_decay=5e-4)
+            # fetch loss function and metrics
+            loss_fn = wrn.loss_fn
+            metrics = wrn.metrics
 
         # Train the model
         logging.info("Starting training for {} epoch(s)".format(params.num_epochs))

@@ -14,9 +14,10 @@ import utils
 
 parser = argparse.ArgumentParser()
 # parser.add_argument('--data_dir', default='data/64x64_SIGNS', help="Directory for the dataset")
-parser.add_argument('--model', default='resnet18',
+# parser.add_argument('--model', default='resnet18',
+#                     help="name of the model")
+parser.add_argument('--model', default='wrn',
                     help="name of the model")
-
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -37,7 +38,7 @@ if __name__ == '__main__':
         model_checkpoint = 'experiments/base_resnet18/best.pth.tar'
 
     elif args.model == "wrn":
-        model = wrn.wrn(depth=28, num_classes=10, widen_factor=10, dropRate=0.3)
+        model = wrn.WideResNet(depth=28, num_classes=10, widen_factor=10, dropRate=0.3)
         model_checkpoint = 'experiments/base_wrn/best.pth.tar'
 
     elif args.model == "distill_resnext":
